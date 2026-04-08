@@ -1,0 +1,23 @@
+stages:
+  - lint
+  - test
+
+variables:
+  PROJECT_ID: "niinp-dtaas-napsup-okyal"
+  ZONE: "us-east4-c"
+
+lint:
+  stage: lint
+  image: python:3.10
+  script:
+    - pip install pyflakes
+    - pyflakes app.py config.py
+  allow_failure: true
+
+test:
+  stage: test
+  image: python:3.10
+  script:
+    - python -c "import ast; ast.parse(open('app.py').read()); print('Syntax OK')"
+    - echo "Basic validation passed"
+  allow_failure: true
