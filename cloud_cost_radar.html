@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cloud Cost Radar — NSP Hackathon 2026</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background: #f4f6fb; color: #222; }
+
+  .topbar {
+    background: #1a2e5a;
+    color: white;
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar .logo { font-size: 20px; font-weight: bold; letter-spacing: 1px; }
+  .topbar .logo span { color: #4fc3f7; }
+  .topbar .sub { font-size: 12px; color: #aac4e0; margin-top: 2px; }
+  .topbar .badge {
+    background: #4fc3f7;
+    color: #1a2e5a;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    border: 1px solid #e0e6f0;
+  }
+  .card .label { font-size: 12px; color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .card .value { font-size: 28px; font-weight: bold; }
+  .card .sub { font-size: 12px; color: #aaa; margin-top: 4px; }
+  .card.red .value { color: #e53935; }
+  .card.amber .value { color: #f57c00; }
+  .card.green .value { color: #2e7d32; }
+  .card.blue .value { color: #1565c0; }
+
+  .section-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #1a2e5a;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #4fc3f7;
+    display: inline-block;
+  }
+
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; border: 1px solid #e0e6f0; margin-bottom: 28px; }
+  thead { background: #1a2e5a; color: white; }
+  thead th { padding: 12px 16px; text-align: left; font-size: 13px; font-weight: 600; }
+  tbody tr { border-bottom: 1px solid #f0f4f8; transition: background 0.15s; }
+  tbody tr:hover { background: #f8faff; }
+  tbody td { padding: 14px 16px; font-size: 13px; }
+
+  .status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: bold;
+  }
+  .status-idle { background: #fdecea; color: #c62828; }
+  .status-over { background: #fff3e0; color: #e65100; }
+  .status-ok { background: #e8f5e9; color: #1b5e20; }
+
+  .cpu-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .cpu-bar { height: 8px; border-radius: 4px; background: #e0e6f0; flex: 1; }
+  .cpu-fill { height: 100%; border-radius: 4px; }
+  .cpu-fill.low { background: #e53935; }
+  .cpu-fill.mid { background: #f57c00; }
+  .cpu-fill.high { background: #2e7d32; }
+
+  .alert-btn {
+    background: #1a2e5a;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .alert-btn:hover { background: #2a4a8a; }
+  .alert-btn.sent { background: #2e7d32; cursor: default; }
+
+  .forecast-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+
+  .forecast-card { background: white; border-radius: 10px; padding: 20px; border: 1px solid #e0e6f0; }
+  .forecast-card .title { font-size: 13px; font-weight: bold; color: #1a2e5a; margin-bottom: 14px; }
+
+  .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .bar-row .month { width: 36px; color: #888; }
+  .bar-outer { flex: 1; background: #f0f4f8; border-radius: 4px; height: 18px; }
+  .bar-inner { height: 100%; border-radius: 4px; background: #1565c0; display: flex; align-items: center; padding-left: 6px; color: white; font-size: 10px; font-weight: bold; }
+  .bar-inner.forecast { background: #e53935; }
+  .bar-row .amount { width: 70px; text-align: right; font-weight: bold; color: #333; font-size: 12px; }
+
+  .ai-box {
+    background: #e8f4fd;
+    border: 1px solid #90caf9;
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 28px;
+  }
+  .ai-box .ai-title { font-size: 13px; font-weight: bold; color: #1565c0; margin-bottom: 10px; }
+  .ai-box .ai-msg { font-size: 13px; color: #333; line-height: 1.7; }
+  .ai-box .ai-msg b { color: #c62828; }
+
+  .pattern-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 28px; }
+  .pattern-card { background: white; border-radius: 10px; padding: 18px; border: 1px solid #e0e6f0; }
+  .pattern-card .ptitle { font-size: 12px; color: #888; margin-bottom: 6px; }
+  .pattern-card .pval { font-size: 22px; font-weight: bold; color: #1a2e5a; }
+  .pattern-card .psub { font-size: 11px; color: #aaa; margin-top: 4px; }
+
+  .toast {
+    display: none;
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: #2e7d32;
+    color: white;
+    padding: 14px 22px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: bold;
+    z-index: 999;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  .toast.show { display: block; }
+
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    color: #aaa;
+    padding: 20px 0 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="logo">Cloud <span>Cost Radar</span></div>
+    <div class="sub">NSP Hackathon 2026 — WP-000113 | Sathriyan Marannan</div>
+  </div>
+  <div class="badge">LIVE DEMO</div>
+</div>
+
+<div class="container">
+
+  <!-- Summary Cards -->
+  <div class="summary-row">
+    <div class="card red">
+      <div class="label">Idle VMs detected</div>
+      <div class="value">2</div>
+      <div class="sub">Out of 3 total VMs</div>
+    </div>
+    <div class="card amber">
+      <div class="label">Monthly waste</div>
+      <div class="value">$430</div>
+      <div class="sub">Estimated current burn</div>
+    </div>
+    <div class="card green">
+      <div class="label">Potential savings</div>
+      <div class="value">$380</div>
+      <div class="sub">If idle VMs are stopped</div>
+    </div>
+    <div class="card blue">
+      <div class="label">Alerts sent</div>
+      <div class="value" id="alert-count">0</div>
+      <div class="sub">To resource owners</div>
+    </div>
+  </div>
+
+  <!-- VM Table -->
+  <div class="section-title"><span class="dot"></span>VM Resource Status — GCP (us-east4-c)</div>
+  <table>
+    <thead>
+      <tr>
+        <th>VM Name</th>
+        <th>Zone</th>
+        <th>CPU Usage (avg 7d)</th>
+        <th>Idle Days</th>
+        <th>Est. Monthly Cost</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>access-vm-access</strong></td>
+        <td>us-east4-c</td>
+        <td>
+          <div class="cpu-bar-wrap">
+            <div class="cpu-bar"><div class="cpu-fill low" style="width:3%"></div></div>
+            <span>3%</span>
+          </div>
+        </td>
+        <td style="color:#c62828;font-weight:bold;">9 days</td>
+        <td>$210 / mo</td>
+        <td><span class="status-badge status-idle">Idle</span></td>
+        <td><button class="alert-btn" onclick="sendAlert(this, 'access-vm-access', '$210')">Send Alert</button></td>
+      </tr>
+      <tr>
+        <td><strong>access-vm-kalec-access</strong></td>
+        <td>us-east4-c</td>
+        <td>
+          <div class="cpu-bar-wrap">
+            <div class="cpu-bar"><div class="cpu-fill low" style="width:5%"></div></div>
+            <span>5%</span>
+          </div>
+        </td>
+        <td style="color:#e65100;font-weight:bold;">4 days</td>
+        <td>$170 / mo</td>
+        <td><span class="status-badge status-over">Idle</span></td>
+        <td><button class="alert-btn" onclick="sendAlert(this, 'access-vm-kalec-access', '$170')">Send Alert</button></td>
+      </tr>
+      <tr>
+        <td><strong>dtaas-ops</strong></td>
+        <td>us-east4-c</td>
+        <td>
+          <div class="cpu-bar-wrap">
+            <div class="cpu-bar"><div class="cpu-fill high" style="width:72%"></div></div>
+            <span>72%</span>
+          </div>
+        </td>
+        <td style="color:#2e7d32;">Active</td>
+        <td>$50 / mo</td>
+        <td><span class="status-badge status-ok">Healthy</span></td>
+        <td><button class="alert-btn sent" disabled>No Action</button></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- AI Recommendation Box -->
+  <div class="section-title"><span class="dot"></span>AI-Generated Recommendation</div>
+  <div class="ai-box">
+    <div class="ai-title">AI Analysis — Generated automatically from usage patterns</div>
+    <div class="ai-msg">
+      <b>access-vm-access</b> has been idle for 9 days with only 3% average CPU usage. It is currently costing approximately <b>$210/month</b> with no active workload detected. Recommended action: stop and snapshot this VM immediately. Estimated saving if stopped today: <b>$189 for the remainder of this month.</b>
+      <br><br>
+      <b>access-vm-kalec-access</b> has been running for 4 days with 5% average CPU — likely a forgotten test environment from the last sprint. Estimated waste: <b>$170/month.</b> Recommended action: confirm with the owner whether this environment is still needed. If no response in 24 hours, proceed with auto-stop.
+      <br><br>
+      <b>dtaas-ops</b> is healthy and active at 72% CPU utilisation. No action required.
+    </div>
+  </div>
+
+  <!-- Spend Forecast -->
+  <div class="section-title"><span class="dot"></span>Spend Forecast — Next 3 Months</div>
+  <div class="forecast-row">
+    <div class="forecast-card">
+      <div class="title">Monthly cloud spend trend (GCP us-east4-c)</div>
+      <div class="bar-chart">
+        <div class="bar-row">
+          <span class="month">Jan</span>
+          <div class="bar-outer"><div class="bar-inner" style="width:48%">$240</div></div>
+          <span class="amount">$240</span>
+        </div>
+        <div class="bar-row">
+          <span class="month">Feb</span>
+          <div class="bar-outer"><div class="bar-inner" style="width:62%">$310</div></div>
+          <span class="amount">$310</span>
+        </div>
+        <div class="bar-row">
+          <span class="month">Mar</span>
+          <div class="bar-outer"><div class="bar-inner" style="width:86%">$430</div></div>
+          <span class="amount">$430</span>
+        </div>
+        <div class="bar-row">
+          <span class="month">Apr ▶</span>
+          <div class="bar-outer"><div class="bar-inner forecast" style="width:96%">$480</div></div>
+          <span class="amount" style="color:#e53935;">$480</span>
+        </div>
+        <div class="bar-row">
+          <span class="month">Apr ✓</span>
+          <div class="bar-outer"><div class="bar-inner" style="width:20%;background:#2e7d32">$100</div></div>
+          <span class="amount" style="color:#2e7d32;">$100*</span>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#aaa;margin-top:10px;">* Projected spend if idle VMs stopped now</div>
+    </div>
+    <div class="forecast-card">
+      <div class="title">Savings breakdown if action taken today</div>
+      <div style="margin-top:8px;">
+        <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f4f8;font-size:13px;">
+          <span>access-vm-access (stop)</span>
+          <span style="color:#2e7d32;font-weight:bold;">+ $210/mo saved</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f4f8;font-size:13px;">
+          <span>access-vm-kalec-access (stop)</span>
+          <span style="color:#2e7d32;font-weight:bold;">+ $170/mo saved</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f4f8;font-size:13px;">
+          <span>dtaas-ops (keep running)</span>
+          <span style="color:#888;">no change</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:14px 0 0;font-size:15px;font-weight:bold;">
+          <span>Total monthly saving</span>
+          <span style="color:#2e7d32;">$380 / month</span>
+        </div>
+        <div style="font-size:12px;color:#aaa;margin-top:4px;">= $4,560 saved per year</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pattern Analysis -->
+  <div class="section-title"><span class="dot"></span>Pattern Analysis</div>
+  <div class="pattern-row">
+    <div class="pattern-card">
+      <div class="ptitle">Most wasteful environment type</div>
+      <div class="pval">Test / Dev VMs</div>
+      <div class="psub">2 out of 2 idle VMs are test environments</div>
+    </div>
+    <div class="pattern-card">
+      <div class="ptitle">Avg idle duration before detection</div>
+      <div class="pval">6.5 days</div>
+      <div class="psub">Previously undetected without this tool</div>
+    </div>
+    <div class="pattern-card">
+      <div class="ptitle">Projected annual saving</div>
+      <div class="pval">$4,560</div>
+      <div class="psub">If idle VMs are cleaned up consistently</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast">Alert sent to resource owner via email!</div>
+
+<div class="footer">
+  Cloud Cost Radar — NSP Hackathon 2026 | WP-000113 | Sathriyan Marannan (Nokia)
+</div>
+
+<script>
+  let alertCount = 0;
+  function sendAlert(btn, vmName, cost) {
+    btn.textContent = 'Alert Sent!';
+    btn.classList.add('sent');
+    btn.disabled = true;
+    alertCount++;
+    document.getElementById('alert-count').textContent = alertCount;
+    const toast = document.getElementById('toast');
+    toast.textContent = 'Alert sent to owner of ' + vmName + ' — estimated waste: ' + cost + '/mo';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>

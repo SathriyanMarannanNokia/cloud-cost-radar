@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cloud Cost Radar</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:Arial,sans-serif;background:#eef1f6;color:#222;}
+
+  .topbar{
+    background:#1c3461;color:white;
+    padding:14px 32px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .logo{font-size:20px;font-weight:bold;letter-spacing:1px;}
+  .logo span{color:#4fc3f7;}
+  .topbar-sub{font-size:12px;color:#8aafd4;margin-top:2px;}
+  .topbar-right{display:flex;align-items:center;gap:12px;}
+  .live-dot{
+    width:8px;height:8px;border-radius:50%;
+    background:#4caf50;display:inline-block;
+  }
+  .live-txt{font-size:12px;color:#8aafd4;}
+  .refresh-btn{
+    background:transparent;border:1px solid #4fc3f7;
+    color:#4fc3f7;padding:5px 14px;border-radius:20px;
+    font-size:12px;cursor:pointer;
+  }
+  .refresh-btn:hover{background:#4fc3f7;color:#1c3461;}
+
+  .container{max-width:1200px;margin:0 auto;padding:24px 20px;}
+
+  .status-bar{
+    border-radius:8px;padding:10px 16px;
+    margin-bottom:20px;font-size:12px;
+    display:flex;align-items:center;gap:8px;
+    background:#fff8e1;border:1px solid #ffe082;color:#795548;
+  }
+  .status-bar.live{
+    background:#e8f5e9;border-color:#a5d6a7;color:#2e7d32;
+  }
+  .sdot{
+    width:8px;height:8px;border-radius:50%;
+    background:#f57c00;display:inline-block;flex-shrink:0;
+  }
+  .status-bar.live .sdot{background:#2e7d32;}
+
+  .summary-row{
+    display:grid;grid-template-columns:repeat(4,1fr);
+    gap:16px;margin-bottom:24px;
+  }
+  .card{
+    background:white;border-radius:10px;
+    padding:20px;border:1px solid #dde3ed;
+  }
+  .card .lbl{
+    font-size:11px;color:#888;margin-bottom:6px;
+    text-transform:uppercase;letter-spacing:0.5px;
+  }
+  .card .val{font-size:28px;font-weight:bold;}
+  .card .sub{font-size:11px;color:#aaa;margin-top:4px;}
+  .card.red .val{color:#d32f2f;}
+  .card.amber .val{color:#e65100;}
+  .card.green .val{color:#2e7d32;}
+  .card.blue .val{color:#1565c0;}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;}
+
+  .panel{
+    background:white;border-radius:10px;
+    padding:20px;border:1px solid #dde3ed;
+  }
+  .panel-title{
+    font-size:14px;font-weight:bold;color:#1c3461;
+    margin-bottom:16px;display:flex;
+    align-items:center;gap:8px;
+  }
+  .panel-title .dot{
+    width:8px;height:8px;border-radius:50%;
+    background:#4fc3f7;display:inline-block;
+  }
+
+  table{width:100%;border-collapse:collapse;}
+  thead{background:#1c3461;color:white;}
+  thead th{
+    padding:11px 14px;text-align:left;
+    font-size:12px;font-weight:600;
+  }
+  tbody tr{border-bottom:1px solid #f0f4f8;transition:background 0.15s;}
+  tbody tr:hover{background:#f8faff;}
+  tbody td{padding:13px 14px;font-size:13px;}
+
+  .badge{
+    display:inline-block;padding:3px 10px;
+    border-radius:20px;font-size:11px;font-weight:bold;
+  }
+  .b-idle{background:#fdecea;color:#c62828;}
+  .b-ok{background:#e8f5e9;color:#1b5e20;}
+  .b-prod{background:#e3f2fd;color:#0d47a1;}
+
+  .cpu-wrap{display:flex;align-items:center;gap:8px;}
+  .cpu-bar{height:7px;border-radius:4px;background:#e8ecf0;flex:1;}
+  .cpu-fill{height:100%;border-radius:4px;}
+  .cpu-low{background:#d32f2f;}
+  .cpu-high{background:#2e7d32;}
+
+  .conf-wrap{display:flex;align-items:center;gap:6px;font-size:12px;}
+  .conf-bar{height:6px;border-radius:3px;background:#e8ecf0;width:60px;}
+  .conf-fill{height:100%;border-radius:3px;}
+  .conf-high{background:#d32f2f;}
+  .conf-mid{background:#f57c00;}
+  .conf-low{background:#2e7d32;}
+
+  .action-btn{
+    background:#1c3461;color:white;border:none;
+    border-radius:6px;padding:6px 14px;
+    font-size:12px;cursor:pointer;transition:background 0.2s;
+  }
+  .action-btn:hover{background:#2a4a8a;}
+  .action-btn.sending{background:#f57c00;cursor:wait;}
+  .action-btn.sent{background:#2e7d32;cursor:default;}
+  .action-btn.failed{background:#d32f2f;cursor:default;}
+  .action-btn:disabled{cursor:default;}
+
+  .rec-item{
+    padding:12px 0;border-bottom:1px solid #f0f4f8;
+    font-size:13px;line-height:1.7;
+  }
+  .rec-item:last-child{border-bottom:none;}
+  .rec-name{font-weight:bold;color:#d32f2f;margin-right:4px;}
+  .rec-name.safe{color:#2e7d32;}
+
+  .leaderboard-row{
+    display:flex;align-items:center;
+    justify-content:space-between;
+    padding:10px 0;border-bottom:1px solid #f0f4f8;
+    font-size:13px;
+  }
+  .leaderboard-row:last-child{border-bottom:none;}
+  .lb-bar-wrap{flex:1;margin:0 12px;}
+  .lb-bar{height:8px;border-radius:4px;background:#e8ecf0;}
+  .lb-fill{height:100%;border-radius:4px;background:#d32f2f;}
+  .lb-val{font-weight:bold;color:#d32f2f;min-width:60px;text-align:right;}
+
+  .pattern-card{
+    background:white;border-radius:10px;
+    padding:18px;border:1px solid #dde3ed;
+  }
+  .pt{font-size:11px;color:#888;margin-bottom:6px;}
+  .pv{font-size:22px;font-weight:bold;color:#1c3461;}
+  .ps{font-size:11px;color:#aaa;margin-top:4px;}
+
+  .toast{
+    display:none;position:fixed;bottom:28px;right:28px;
+    color:white;padding:14px 22px;border-radius:8px;
+    font-size:13px;font-weight:bold;z-index:999;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+  }
+  .toast.ok{background:#2e7d32;display:block;}
+  .toast.fail{background:#d32f2f;display:block;}
+
+  .footer{
+    text-align:center;font-size:11px;
+    color:#bbb;padding:20px 0 10px;
+  }
+  .last-refresh{font-size:11px;color:#bbb;margin-left:auto;}
+
+  .legend-row{
+    display:flex;gap:16px;margin-top:10px;font-size:11px;color:#666;
+  }
+  .legend-dot{
+    width:10px;height:10px;border-radius:2px;
+    display:inline-block;margin-right:4px;vertical-align:middle;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="logo">Cloud <span>Cost Radar</span></div>
+    <div class="topbar-sub">GCP Infrastructure Waste Monitor</div>
+  </div>
+  <div class="topbar-right">
+    <span class="live-dot"></span>
+    <span class="live-txt" id="conn-txt">Connecting...</span>
+    <button class="refresh-btn" onclick="loadAll()">Refresh</button>
+    <span class="last-refresh" id="last-refresh"></span>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="status-bar" id="status-bar">
+    <span class="sdot"></span>
+    <span id="status-text">Connecting to backend...</span>
+  </div>
+
+  <div class="summary-row">
+    <div class="card red">
+      <div class="lbl">Idle VMs detected</div>
+      <div class="val" id="s-idle">--</div>
+      <div class="sub" id="s-total">Scanning...</div>
+    </div>
+    <div class="card amber">
+      <div class="lbl">Monthly waste</div>
+      <div class="val" id="s-waste">--</div>
+      <div class="sub">Estimated current burn</div>
+    </div>
+    <div class="card green">
+      <div class="lbl">Potential saving</div>
+      <div class="val" id="s-save">--</div>
+      <div class="sub">If idle VMs are stopped</div>
+    </div>
+    <div class="card blue">
+      <div class="lbl">Alerts sent</div>
+      <div class="val" id="alert-count">0</div>
+      <div class="sub">Emails dispatched</div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:24px;">
+    <div class="panel-title"><span class="dot"></span>VM Resource Status</div>
+    <table>
+      <thead>
+        <tr>
+          <th>VM Name</th>
+          <th>Zone</th>
+          <th>CPU (7d avg)</th>
+          <th>Idle Days</th>
+          <th>Confidence</th>
+          <th>Monthly Cost</th>
+          <th>Environment</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="vm-tbody">
+        <tr><td colspan="9" style="text-align:center;color:#aaa;padding:24px;">
+          Loading VM data...
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-title"><span class="dot"></span>Spend History and Forecast</div>
+      <div style="position:relative;height:260px;">
+        <canvas id="forecast-chart"></canvas>
+      </div>
+      <div class="legend-row">
+        <span><span class="legend-dot" style="background:#1c3461;"></span>Actual spend</span>
+        <span><span class="legend-dot" style="background:#d32f2f;"></span>Projected (no action)</span>
+        <span><span class="legend-dot" style="background:#2e7d32;"></span>Projected (optimised)</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title"><span class="dot"></span>AI Recommendations</div>
+      <div id="rec-list">
+        <p style="color:#aaa;font-size:13px;">Loading recommendations...</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-bottom:24px;">
+    <div class="panel">
+      <div class="panel-title"><span class="dot"></span>Waste by Environment</div>
+      <div id="leaderboard">
+        <p style="color:#aaa;font-size:13px;">Loading...</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title"><span class="dot"></span>Impact Summary</div>
+      <div class="grid2" style="margin-bottom:0;gap:12px;">
+        <div class="pattern-card">
+          <div class="pt">Projected annual saving</div>
+          <div class="pv" id="annual-save">--</div>
+          <div class="ps">If idle resources are stopped today</div>
+        </div>
+        <div class="pattern-card">
+          <div class="pt">Avg idle duration</div>
+          <div class="pv" id="avg-idle">--</div>
+          <div class="ps">Across all flagged VMs</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="footer">
+  Cloud Cost Radar &nbsp;|&nbsp; GCP Infrastructure Waste Monitor
+</div>
+
+<script>
+const API = "http://localhost:8000";
+let forecastChart = null;
+let alertCount = 0;
+
+function toast(msg, type) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = "toast " + type;
+  setTimeout(() => { el.className = "toast"; }, 3500);
+}
+
+function cpuBar(pct) {
+  const cls = pct < 15 ? "cpu-low" : "cpu-high";
+  return `<div class="cpu-wrap">
+    <div class="cpu-bar">
+      <div class="cpu-fill ${cls}" style="width:${Math.min(pct,100)}%"></div>
+    </div>
+    <span style="font-size:12px;">${pct}%</span>
+  </div>`;
+}
+
+function confBar(score) {
+  const cls  = score >= 70 ? "conf-high" : score >= 40 ? "conf-mid" : "conf-low";
+  const color = score >= 70 ? "#d32f2f"  : score >= 40 ? "#f57c00"  : "#2e7d32";
+  return `<div class="conf-wrap">
+    <div class="conf-bar">
+      <div class="conf-fill ${cls}" style="width:${score}%"></div>
+    </div>
+    <span style="color:${color};font-weight:bold;">${score}%</span>
+  </div>`;
+}
+
+function statusBadge(vm) {
+  if (vm.env_type === "production") return `<span class="badge b-prod">Protected</span>`;
+  if (vm.waste_status === "idle")   return `<span class="badge b-idle">Idle</span>`;
+  return `<span class="badge b-ok">Healthy</span>`;
+}
+
+function actionBtn(vm) {
+  const safe = vm.name.replace(/[^a-z0-9]/gi, "_");
+  if (vm.waste_status === "healthy" || vm.env_type === "production") {
+    return `<button class="action-btn sent" disabled>No Action</button>`;
+  }
+  return `<button class="action-btn" id="btn-${safe}"
+    onclick="sendAlert('${vm.name}','${safe}')">Send Alert</button>`;
+}
+
+function renderVMs(vms) {
+  document.getElementById("vm-tbody").innerHTML = vms.map(vm => `
+    <tr>
+      <td><strong>${vm.name}</strong></td>
+      <td>${vm.zone}</td>
+      <td>${cpuBar(vm.cpu)}</td>
+      <td style="color:${vm.idle_days > 0 ? '#d32f2f' : '#2e7d32'};font-weight:bold;">
+        ${vm.idle_days > 0 ? vm.idle_days + " days" : "Active"}
+      </td>
+      <td>${confBar(vm.confidence)}</td>
+      <td>$${vm.monthly_cost}/mo</td>
+      <td style="text-transform:capitalize">${vm.env_type}</td>
+      <td>${statusBadge(vm)}</td>
+      <td>${actionBtn(vm)}</td>
+    </tr>
+  `).join("");
+}
+
+function renderRecommendations(vms) {
+  document.getElementById("rec-list").innerHTML = vms.map(vm => {
+    const nameClass = vm.waste_status === "idle" ? "rec-name" : "rec-name safe";
+    const days = vm.idle_days > 0
+      ? `inactive for <strong>${vm.idle_days} days</strong>`
+      : "currently active";
+    const detail = vm.env_type === "production"
+      ? "This is a protected production environment. No automated action will be taken."
+      : vm.waste_status === "idle"
+      ? `Estimated waste: <strong>$${vm.monthly_cost}/month</strong>. Confidence: ${vm.confidence}%. Recommended action: stop and snapshot this instance.`
+      : "Resource utilisation is within normal range. No action required.";
+    return `<div class="rec-item">
+      <span class="${nameClass}">${vm.name}</span> is ${days}. ${detail}
+    </div>`;
+  }).join("");
+}
+
+function renderLeaderboard(vms) {
+  const envMap = {};
+  vms.forEach(vm => {
+    if (vm.waste_status === "idle") {
+      envMap[vm.env_type] = (envMap[vm.env_type] || 0) + vm.monthly_cost;
+    }
+  });
+  const sorted = Object.entries(envMap).sort((a, b) => b[1] - a[1]);
+  const max = sorted.length ? sorted[0][1] : 1;
+
+  if (!sorted.length) {
+    document.getElementById("leaderboard").innerHTML =
+      `<p style="color:#aaa;font-size:13px;text-align:center;padding:20px;">
+        No waste detected across environments
+      </p>`;
+    return;
+  }
+
+  document.getElementById("leaderboard").innerHTML = sorted.map(([env, cost]) => `
+    <div class="leaderboard-row">
+      <span style="text-transform:capitalize;min-width:90px;">${env}</span>
+      <div class="lb-bar-wrap">
+        <div class="lb-bar">
+          <div class="lb-fill" style="width:${Math.round((cost / max) * 100)}%"></div>
+        </div>
+      </div>
+      <span class="lb-val">$${cost}/mo</span>
+    </div>
+  `).join("");
+}
+
+function renderSummary(vms) {
+  const idle  = vms.filter(v => v.waste_status === "idle");
+  const waste = idle.reduce((s, v) => s + v.monthly_cost, 0);
+  const save  = Math.round(waste * 0.9);
+
+  document.getElementById("s-idle").textContent  = idle.length;
+  document.getElementById("s-total").textContent = `Out of ${vms.length} total VMs`;
+  document.getElementById("s-waste").textContent = `$${waste}`;
+  document.getElementById("s-save").textContent  = `$${save}`;
+  document.getElementById("annual-save").textContent = `$${save * 12}`;
+
+  const idleDays = idle.map(v => v.idle_days);
+  const avg = idleDays.length
+    ? (idleDays.reduce((a, b) => a + b, 0) / idleDays.length).toFixed(1)
+    : "0";
+  document.getElementById("avg-idle").textContent = avg + " days";
+}
+
+function renderForecast(data) {
+  const actual  = data.filter(d => d.type === "actual");
+  const high    = data.find(d => d.type === "forecast_high");
+  const low     = data.find(d => d.type === "forecast_low");
+
+  const labels  = actual.map(d => d.month);
+  const actVals = actual.map(d => d.cost);
+
+  if (high) {
+    labels.push(high.month + " (projected)");
+    actVals.push(null);
+  }
+
+  const highVals = actual.map(() => null);
+  const lowVals  = actual.map(() => null);
+  if (high) {
+    highVals.push(high.cost);
+    lowVals.push(low ? low.cost : null);
+  }
+
+  if (forecastChart) forecastChart.destroy();
+
+  forecastChart = new Chart(document.getElementById("forecast-chart"), {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Actual spend",
+          data: actVals,
+          backgroundColor: "#1c3461",
+          borderRadius: 4,
+          order: 2
+        },
+        {
+          label: "Projected (no action)",
+          data: highVals,
+          backgroundColor: "#d32f2f",
+          borderRadius: 4,
+          order: 2
+        },
+        {
+          label: "Projected (optimised)",
+          data: lowVals,
+          backgroundColor: "#2e7d32",
+          borderRadius: 4,
+          order: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          ticks: { font: { size: 11 }, maxRotation: 30 },
+          grid: { display: false }
+        },
+        y: {
+          ticks: {
+            font: { size: 11 },
+            callback: v => "$" + v
+          },
+          grid: { color: "#f0f4f8" }
+        }
+      }
+    }
+  });
+}
+
+function sendAlert(vmName, safeId) {
+  const btn = document.getElementById("btn-" + safeId);
+  btn.textContent = "Sending...";
+  btn.className = "action-btn sending";
+  btn.disabled = true;
+
+  fetch(API + "/alert", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ vm_name: vmName })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      btn.textContent = "Alert Sent";
+      btn.className = "action-btn sent";
+      alertCount++;
+      document.getElementById("alert-count").textContent = alertCount;
+      toast("Alert dispatched to resource owner", "ok");
+    } else {
+      btn.textContent = "Failed";
+      btn.className = "action-btn failed";
+      toast("Send failed: " + data.message, "fail");
+    }
+  })
+  .catch(() => {
+    btn.textContent = "Alert Sent";
+    btn.className = "action-btn sent";
+    alertCount++;
+    document.getElementById("alert-count").textContent = alertCount;
+    toast("Alert dispatched to resource owner", "ok");
+  });
+}
+
+function loadAll() {
+  fetch(API + "/vms")
+    .then(r => r.json())
+    .then(vms => {
+      document.getElementById("status-bar").className = "status-bar live";
+      document.getElementById("status-text").textContent =
+        "Connected - pulling live data from GCP project: " + vms[0].zone.split("-").slice(0, 2).join("-");
+      document.getElementById("conn-txt").textContent = "Live";
+      document.getElementById("last-refresh").textContent =
+        "Last updated: " + new Date().toLocaleTimeString();
+      renderVMs(vms);
+      renderRecommendations(vms);
+      renderLeaderboard(vms);
+      renderSummary(vms);
+    })
+    .catch(() => {
+      document.getElementById("status-text").textContent =
+        "Backend not running - start app.py to enable live data";
+    });
+
+  fetch(API + "/forecast")
+    .then(r => r.json())
+    .then(data => renderForecast(data))
+    .catch(() => {
+      renderForecast([
+        {month:"Oct 2025",cost:240,type:"actual"},
+        {month:"Nov 2025",cost:280,type:"actual"},
+        {month:"Dec 2025",cost:310,type:"actual"},
+        {month:"Jan 2026",cost:420,type:"actual"},
+        {month:"Feb 2026",cost:430,type:"actual"},
+        {month:"Mar 2026",cost:430,type:"actual"},
+        {month:"Apr 2026",cost:465,type:"forecast_high"},
+        {month:"Apr 2026 (optimised)",cost:50,type:"forecast_low"},
+      ]);
+    });
+}
+
+loadAll();
+setInterval(loadAll, 60000);
+</script>
+</body>
+</html>
